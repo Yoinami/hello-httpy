@@ -2,7 +2,7 @@ from __future__ import annotations
 import socket
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from threading import Thread
+from threading import Thread, Event
 
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -21,27 +21,22 @@ class Server:
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(num_allowed_clients)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-        self.executor = ThreadPoolExecutor(max_workers=num_allowed_clients)
+        self.server_socket.setblocking(0)
 
         # Sever Status
         self.running = True
+        self.closing = Event()
 
 
     def wait_to_get_client_request(self) -> tuple[socket.socket, tuple[str, int]]:
-        "Blocking code that waits for a client to connect"
-        self.logger.info("Waiting to handle request")
+        "Waits for a client to connect"
         return self.server_socket.accept()
     
 
     def handle_request(self, client_socket, client_address) -> None:
         print(f"Connection from {client_address}")
         
-        data = client_socket.recv(1024)
-
-        if not data:
-            raise Exception
-
+        data = client_socket.recv(2048)
         self.logger.info(f"Received from: {client_address}")
 
         response_body = "<h1>Hello from the server!</h1>".encode('utf-8')
@@ -62,27 +57,29 @@ class Server:
         self.logger.info(f"Stopping the server")
         self.logger.info(f"Closing all the request threads")
 
-        self.server_socket.setblocking(False)
         self.running = False
-        try:
-            self.server_socket.shutdown(socket.SHUT_WR)
-        except OSError:
-            pass
-        self.server_socket.close()
-        self.executor.shutdown()
 
-        self.logger.info(f"Closed all the request. Server successfully stopped")
+        self.event_loop_thread.join()
+        self.logger.info("Main Event Loop terminated and closed all the request.")
+
+        self.server_socket.close()
+
+        self.logger.info(f"Server successfully stopped")
     
 
     def run(self) -> None:
         "Run Server"
-        event_loop_thread = Thread(target=self.server_main_event_loop)
-        event_loop_thread.daemon = True
-        event_loop_thread.start()
+        self.event_loop_thread = Thread(target=self.server_main_event_loop)
+        self.event_loop_thread.start()
         while self.running:
             pass
 
     def server_main_event_loop(self) -> None:
+        client_request = None
+        self.logger.info("Server ready to handle requests")
         while self.running:
-            client_request = self.wait_to_get_client_request()
-            self.handle_request(*client_request)
+            try:
+                client_request = self.wait_to_get_client_request()
+                self.handle_request(*client_request)
+            except Exception:
+                pass
