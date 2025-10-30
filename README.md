@@ -20,7 +20,7 @@ A tiny HTTP server written in Python for learning purposes. It focuses on unders
 - None
 
 ## Project structure
-- server.py           entry point
+- src/hello-httpy/main.py           entry point
 
 ## Development (Future)
 - Lint/test: ruff/flake8, pytest or unittest
