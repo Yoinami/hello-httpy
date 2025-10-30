@@ -1,7 +1,8 @@
 from __future__ import annotations
-import socket, asyncio
+import socket
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from threading import Thread
 
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -9,9 +10,8 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
-
 class Server:
-    def __init__(self, host="localhost", port=12345):
+    def __init__(self, host="localhost", port=12345, num_allowed_clients=5):
         self.host = host
         self.port = port
         self.logger = logging.getLogger("MainServer")
@@ -19,30 +19,25 @@ class Server:
         # We will use TCP and IPv4 to communicate with clients
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.host, self.port))
-
-        self.executor = None
-
-    def listen(self, num_allowed_clients: int) -> Server:
         self.server_socket.listen(num_allowed_clients)
-        self.logger.info(f"Server listening on {self.host}:{self.port}")
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
         self.executor = ThreadPoolExecutor(max_workers=num_allowed_clients)
 
-        return self
-    
-    def close(self) -> None:
-        self.server_socket.close()
-        self.logger.info("Server socket closed")
+        # Sever Status
+        self.running = True
+
 
     def wait_to_get_client_request(self) -> tuple[socket.socket, tuple[str, int]]:
         "Blocking code that waits for a client to connect"
         self.logger.info("Waiting to handle request")
         return self.server_socket.accept()
     
-    def handle_request(self) -> None:
-        client_connection, client_address = self.wait_to_get_client_request()
+
+    def handle_request(self, client_socket, client_address) -> None:
         print(f"Connection from {client_address}")
         
-        data = client_connection.recv(1024)
+        data = client_socket.recv(1024)
 
         if not data:
             raise Exception
@@ -58,28 +53,36 @@ class Server:
             "\r\n"
         ).encode('utf-8')
 
-        client_connection.sendall(response_headers)
-        client_connection.sendall(response_body)
-        client_connection.close()
-    
-    def run(self) -> None:
-        "Main Server Loop that runs"
-        running = True
-        loop = asyncio.get_event_loop()
+        client_socket.sendall(response_headers)
+        client_socket.sendall(response_body)
+        client_socket.close()
 
-        while running:
-            try:
-                if(len(self.executor._threads) < 1): 
-                    loop.run_in_executor(self.executor, self.handle_request)
-            except KeyboardInterrupt:
-                self.logger.info(f"Server Stopped by the computer user")
-                self.logger.info(f"Closing all the request threads")
-                
-                running = False
 
-        self.logger.info("Server successfully stopped")
-        self.server_socket.shutdown(socket.SHUT_RDWR)
+    def stop(self) -> None:
+        self.logger.info(f"Stopping the server")
+        self.logger.info(f"Closing all the request threads")
+
+        self.server_socket.setblocking(False)
+        self.running = False
+        try:
+            self.server_socket.shutdown(socket.SHUT_WR)
+        except OSError:
+            pass
         self.server_socket.close()
-        self.executor.shutdown(wait=False, cancel_futures=True)
-        loop.close()
-        self.logger.info(f"Closed all the request")
+        self.executor.shutdown()
+
+        self.logger.info(f"Closed all the request. Server successfully stopped")
+    
+
+    def run(self) -> None:
+        "Run Server"
+        event_loop_thread = Thread(target=self.server_main_event_loop)
+        event_loop_thread.daemon = True
+        event_loop_thread.start()
+        while self.running:
+            pass
+
+    def server_main_event_loop(self) -> None:
+        while self.running:
+            client_request = self.wait_to_get_client_request()
+            self.handle_request(*client_request)

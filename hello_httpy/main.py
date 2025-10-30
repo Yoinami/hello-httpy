@@ -8,6 +8,9 @@ logging.basicConfig(level=logging.INFO)
 
 def main():
     server = Server()
-    server.listen(5)
-    
-    server.run()
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt On Server")
+    finally:
+        server.stop()
