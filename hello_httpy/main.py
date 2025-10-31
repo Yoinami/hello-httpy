@@ -1,5 +1,5 @@
 import logging
-from .model.Server import Server
+from .model.HelloHttpy import HelloHttpy
 
 logger = logging.getLogger("main-loop")
 logging.basicConfig(level=logging.INFO)
@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    server = Server()
+    server = HelloHttpy()
     try:
         server.run()
     except KeyboardInterrupt:
