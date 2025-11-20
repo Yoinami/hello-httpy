@@ -5,7 +5,6 @@ logger = logging.getLogger("main-loop")
 logging.basicConfig(level=logging.INFO)
 
 
-
 def main():
     server = HelloHttpy()
     try:
@@ -14,3 +13,7 @@ def main():
         logger.info("KeyboardInterrupt On Server")
     finally:
         server.stop()
+
+
+if __name__ == "__main__":
+    main()

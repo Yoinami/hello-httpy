@@ -3,7 +3,7 @@ import socket
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from .http import Request, Response
-from threading import Thread, Event
+from multiprocessing import Process, cpu_count, Pool
 
 
 logging.basicConfig(
@@ -27,7 +27,6 @@ class HelloHttpy:
 
         # Sever Status
         self.running = True
-        self.closing = Event()
 
 
     def wait_to_get_client_request(self) -> tuple[socket.socket, str]:
@@ -55,6 +54,7 @@ class HelloHttpy:
 
         client_socket.sendall(response_headers)
         client_socket.sendall(response_body)
+        client_socket.close()
 
 
     def stop(self) -> None:
@@ -62,8 +62,6 @@ class HelloHttpy:
         self.logger.info(f"Closing all the request threads")
 
         self.running = False
-
-        self.event_loop_thread.join()
         self.logger.info("Main Event Loop terminated and closed all the request.")
 
         self.server_socket.close()
@@ -73,22 +71,19 @@ class HelloHttpy:
 
     def run(self) -> None:
         "Run Server"
-        self.event_loop_thread = Thread(target=self.server_main_event_loop)
-        self.event_loop_thread.start()
-        while self.running:
-            pass
+        self.server_main_event_loop()
+
 
     def server_main_event_loop(self) -> None:
         client_request = None
-        self.logger.info("Server ready to handle requests")
+        self.logger.info("Server ready to handle requests at: " + str(self.port))
         while self.running:
-            try:
-                client_request = self.wait_to_get_client_request()
-                self.handle_request(*client_request)
-            except IOError:
-                pass
-            except Exception as e:
-                print(f"error: {e}")
-            finally:
-                if client_request:
-                    client_request[0].close()
+            with Pool(cpu_count()) as pool:
+                try:
+                    client_request = self.wait_to_get_client_request()
+                    if client_request:
+                        pool.starmap(self.handle_request, [client_request])
+                except IOError:
+                    pass
+                except Exception as e:
+                    print(f"error: {e}")
