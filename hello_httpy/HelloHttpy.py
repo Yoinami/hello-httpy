@@ -2,7 +2,7 @@ from __future__ import annotations
 import socket
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from .http import Request, Response
+from .model.http import Request, Response
 from multiprocessing import Process, cpu_count, Pool
 
 

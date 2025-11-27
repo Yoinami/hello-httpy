@@ -1,5 +1,5 @@
 import logging
-from .model.HelloHttpy import HelloHttpy
+from HelloHttpy import HelloHttpy
 
 logger = logging.getLogger("main-loop")
 logging.basicConfig(level=logging.INFO)
