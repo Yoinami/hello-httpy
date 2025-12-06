@@ -1,11 +1,11 @@
 from __future__ import annotations
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from enum import Enum
 
 
 class HttpHeader(BaseModel):
-    pairs: dict
-
+    model_config = ConfigDict(extra='allow')
+    
 class HttpBody(BaseModel):
     value: str
 
@@ -38,9 +38,9 @@ class Request:
             if not pair:
                 continue
             key, value = pair.split(':', maxsplit=1)
-            headers[key.strip()] = value.strip()
+            headers[key.strip().lower()] = value.strip()
 
-        httpHeader = HttpHeader(pairs=headers)
+        httpHeader = HttpHeader(**headers)
         httpBody = HttpBody(value=ls[-1])
 
         return Request(httpHeader, ls[0].split()[0].lower(), httpBody)
