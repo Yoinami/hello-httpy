@@ -30,6 +30,9 @@ class HelloHttpy:
         # Sever Status
         self.running = True
 
+        # Routes
+        self._routes = {}
+
 
     def wait_to_get_client_request(self) -> tuple[socket.socket, str]:
         "Waits for a client to connect"
@@ -95,3 +98,35 @@ class HelloHttpy:
                     pass
                 except Exception as e:
                     print(f"error: {e}")
+
+
+    # Get Request
+    def get(self, route):
+        if route:
+           route_and_method = route + " GET"
+           return self._create_routes(route_and_method)
+        
+    def post(self, route):
+        if route:
+           route_and_method = route + " POST"
+           return self._create_routes(route_and_method)
+        
+    def delete(self, route):
+        if route:
+           route_and_method = route + " DELETE"
+           return self._create_routes(route_and_method)
+        
+    def put(self, route):
+        if route:
+           route_and_method = route + " PUT"
+           return self._create_routes(route_and_method)
+        
+    def update(self, route):
+        if route:
+           route_and_method = route + " UPDATE"
+           return self._create_routes(route_and_method)
+    
+    def _create_routes(self, route_and_method):
+        def decorator(func):
+            self._routes[route_and_method] = func
+        return decorator
